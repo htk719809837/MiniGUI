@@ -169,8 +169,14 @@ static void ParseEvent (PLWEVENT lwe)
         case ME_MIDDLEDBLCLICK:
             Msg.message = MSG_MBUTTONDBLCLK;
             break;
+         case KE_KEYLONGPRESS:
+            Msg.message = MSG_KEYLONGPRESS;
+		    break;
         }
 
+        #if 0 
+        // 这里主要解决scrollview自己定义的滑动功能导致滑动回退的问题，我们这边考虑scrollview的滑动和长按不提交官方修改，
+        // 但是仍然希望官方可以考虑新增列表的滑动以及长按的功能，因为真的很实用，并且修复滑动回退的问题
         if (me->event != ME_MOVED && (mouse_x != me->x || mouse_y != me->y)) {
             int old = Msg.message;
 
@@ -184,6 +190,7 @@ static void ParseEvent (PLWEVENT lwe)
 
         if (__mg_check_hook_func (HOOK_EVENT_MOUSE, &Msg) == HOOK_GOON)
             QueueDeskMessage (&Msg);
+        #endif
     }
 }
 
