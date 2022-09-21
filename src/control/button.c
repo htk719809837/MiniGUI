@@ -76,6 +76,7 @@
 
 #define BUTTON_STATUS(pctrl)   (((PBUTTONDATA)((pctrl)->dwAddData2))->status)
 #define BUTTON_DATA(pctrl)     (((PBUTTONDATA)((pctrl)->dwAddData2))->data)
+#define BUTTON_DATA2(pctrl)     (((PBUTTONDATA)((pctrl)->dwAddData2))->data2)
 #define BUTTON_TYPE(pctrl)     ((pctrl)->dwStyle & BS_TYPEMASK)
 
 #define BUTTON_IS_AUTO(pctrl) \
@@ -298,7 +299,15 @@ static void change_status_from_pose (PCONTROL pctrl, int new_pose,
             }
         }
     }
-
+     /* chg 防止使用send发送colse消息时，button仍在响应处理中关闭窗口导致的崩溃风险 */
+     /* DK: When the radio or check button state changes do not erase the background,
+     * and the prospects for direct rendering */
+    btnGetRects (pctrl, &rcClient, &rcContent, &rcBitmap);
+    if (BUTTON_IS_PUSHBTN(pctrl) || (pctrl->dwStyle & BS_PUSHLIKE))
+        InvalidateRect((HWND)pctrl, NULL, TRUE);
+    else
+        InvalidateRect((HWND)pctrl, &rcBitmap, FALSE);
+        
     /*complete a click if the click if valid
      * (mouse lbutton up in button )*/
     if (old_pose == BST_PUSHED && new_pose != BST_DISABLE
@@ -312,14 +321,8 @@ static void change_status_from_pose (PCONTROL pctrl, int new_pose,
 
         NotifyParent ((HWND)pctrl, pctrl->id, BN_CLICKED);
     }
+   /* end  */
 
-    /* DK: When the radio or check button state changes do not erase the background,
-     * and the prospects for direct rendering */
-    btnGetRects (pctrl, &rcClient, &rcContent, &rcBitmap);
-    if (BUTTON_IS_PUSHBTN(pctrl) || (pctrl->dwStyle & BS_PUSHLIKE))
-        InvalidateRect((HWND)pctrl, NULL, TRUE);
-    else
-        InvalidateRect((HWND)pctrl, &rcBitmap, FALSE);
 }
 
 /*btnGetRects:
@@ -420,11 +423,23 @@ static void draw_bitmap_button (PCONTROL pctrl, HDC hdc, DWORD dwStyle,
         int h = RECTHP (prcText);
         PBITMAP bmp = (PBITMAP)(BUTTON_DATA(pctrl));
         RECT prcClient;
-
+            
+        if (pctrl->dwStyle & WS_DISABLED)
+        {
+            bmp = (PBITMAP)(BUTTON_DATA(pctrl));
+        }
+        else 
+        {
+            if ((BUTTON_GET_POSE(pctrl) == BST_PUSHED)&&(NULL != BUTTON_DATA2(pctrl)))
+            {
+                bmp = (PBITMAP)(BUTTON_DATA2(pctrl));
+            }
+        }
+        
         GetClientRect ((HWND)pctrl, &prcClient);
         if (dwStyle & BS_REALSIZEIMAGE) {
-            x += (w - bmp->bmWidth) >> 1;
-            y += (h - bmp->bmHeight) >> 1;
+            x += (int)(w - bmp->bmWidth) >> 1;
+            y += (int)(h - bmp->bmHeight) >> 1;
             w = h = 0;
 
             if (bmp->bmWidth > RECTW(prcClient)){
@@ -553,7 +568,9 @@ static void paint_content_focus(HDC hdc, PCONTROL pctrl, RECT* prc_cont)
 
         if (!is_get_fg)
             fg_color = GetWindowElementAttr((HWND)pctrl, WE_FGC_THREED_BODY);
-        win_rdr->draw_focus_frame(hdc, &focus_rc, fg_color);
+            
+    // 尽管在渲染器中可以改变button的风格，但是在现代风格来看，button按理说不需要虚线框和边框了，这里建议删除
+       // win_rdr->draw_focus_frame(hdc, &focus_rc, fg_color);
     }
 }
 
@@ -575,8 +592,9 @@ static void paint_push_btn (HDC hdc, PCONTROL pctrl)
     main_color = GetWindowElementAttr((HWND)pctrl, WE_MAINC_THREED_BODY);
 
     btnGetRects (pctrl, &rcClient, &rcContent, &rcBitmap);
-    win_rdr->draw_push_button((HWND)pctrl, hdc, &rcClient, main_color,
-            0xFFFFFFFF, BUTTON_STATUS(pctrl));
+    // 尽管在渲染器中可以改变button的风格，但是在现代风格来看，button按理说不需要虚线框和边框了，这里建议删除
+    //win_rdr->draw_push_button((HWND)pctrl, hdc, &rcClient, main_color,
+    //        0xFFFFFFFF, BUTTON_STATUS(pctrl));
 
     paint_content_focus(hdc, pctrl, &rcContent);
 }
@@ -699,7 +717,8 @@ static LRESULT ButtonCtrlProc (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
     PCONTROL    pctrl;
     DWORD       dwStyle;
     PBUTTONDATA pData;
-
+    char*		spCaption;
+        
     pctrl   = gui_Control(hWnd);
     dwStyle = pctrl->dwStyle;
 
@@ -821,7 +840,19 @@ static LRESULT ButtonCtrlProc (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
             return oldImage;
         }
         break;
+                    
+        case BM_SETIMAGE2:
+        {
+            int oldImage = (int)BUTTON_DATA2 (pctrl);  
 
+            if (lParam) {
+                 BUTTON_DATA2 (pctrl) = (DWORD)lParam;
+            }
+
+            return oldImage;
+        }
+        break;
+                    
         case BM_CLICK:
         {
             int new_check;
@@ -1043,12 +1074,28 @@ static LRESULT ButtonCtrlProc (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
         {
             hdc = BeginPaint (hWnd);
             SelectFont (hdc, GetWindowFont(hWnd));
+			RECT rcClient;
+			RECT rcContent;
+			RECT rcBitmap;
+			PLOGFONT old_font;
+			btnGetRects (pctrl, &rcClient, &rcContent, &rcBitmap);
 
             if (BUTTON_IS_PUSHBTN(pctrl) || (pctrl->dwStyle & BS_PUSHLIKE))
                 paint_push_btn(hdc, pctrl);
             else
                 paint_check_radio_btn(hdc, pctrl);
+			spCaption = GetWindowCaption (hWnd);
+            if (spCaption) 
+			{
+                SetBkMode (hdc, BM_TRANSPARENT);
+				SetTextColor (hdc, GetWindowElementPixelEx (hWnd, hdc, WE_FGC_WINDOW));
+				
+        		old_font = SelectFont (hdc, GetWindowFont(hWnd));
+				//DrawText (hdc, spCaption, -1, &rcClient, DT_SINGLELINE | DT_CENTER | DT_VCENTER);
+				DrawText (hdc, spCaption, -1, &rcContent, btnGetTextFmt(pctrl->dwStyle));
 
+				SelectFont(hdc, old_font);
+            }
             EndPaint (hWnd, hdc);
             return 0;
         }
