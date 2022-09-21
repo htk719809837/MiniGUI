@@ -611,7 +611,9 @@ extern "C" {
  *          Specifies the type of image to associate with the button to be an icon.
  */
 #define BM_SETIMAGE             0xF0F8
-
+ 
+#define BM_SETIMAGE2            0xF0F9
+ 
 #define BM_MSGMAX               0xF100
 
     /** @} end of ctrl_button_msgs */
