@@ -160,7 +160,11 @@ static int isInItem (MgList *mglst, int mouseX, int mouseY,
 
     if (pRet)
         *pRet = (MgItem*)pci;
-
+    
+    if (NULL == pci)
+        {
+            return -1;
+        }
     return index;
 }
 
