@@ -671,9 +671,39 @@ BOOL kernel_GetLWEvent (int event, PLWEVENT lwe)
     timeout_count = 0;
     /* There was an event occurred. */
     if (event & IAL_MOUSEEVENT) {
-        lwe->type = LWETYPE_MOUSE;
-        if (kernel_RefreshCursor(&me->x, &me->y, &button)) {
+		BOOL bRefreshStatus =FALSE;
+    lwe->type = LWETYPE_MOUSE;
+  // 注意，我们这里用key的长按代替了触摸屏的长按，希望官方整合的时候可以按照你们的规范来进一步优化，谢谢！！！
+		bRefreshStatus = kernel_RefreshCursor(&me->x, &me->y, &button);
+	//	printf("bRefreshStatus is :%d \n",bRefreshStatus);
+		 if((0 == oldbutton )&&(button))
+		 {
+            /*触摸屏按下操作，记录下按下时间*/
+	        ke_time =__mg_tick_counter;	 
+		 }
+		 else 	if((1 == oldbutton )&&(!button))
+		 {
+			 /*触摸屏抬起操作，时间变量清空*/
+			 ke_time = 0;	 
+		 }
+		 else 	if((1 == oldbutton )&&(button))
+		 {
+			 /*触摸屏按下未抬起，计算时间*/
+		     interval = __mg_tick_counter - ke_time;
+		     if (interval >= __mg_key_longpress_time) 
+		     {
+				 me->event = KE_KEYLONGPRESS;
+	             ke_time = __mg_tick_counter;//重新开始计时
+	             //printf("file:%s, line:%d [KE_KEYLONGPRESS]\n", __FILE__, __LINE__);
+	             goto mouseret; 
+			 }  
+		 }
+		 else
+		 {
 
+		 }
+
+        if (bRefreshStatus) {
             me->event = ME_MOVED;
             time1 = 0;
             time2 = 0;
