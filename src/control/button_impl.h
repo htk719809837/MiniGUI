@@ -61,6 +61,7 @@ typedef struct tagBUTTONDATA
 {
     DWORD status;           /* button flags */
     DWORD data;             /* bitmap or icon of butotn. */
+    DWORD data2;            /* bitmap or icon of down butotn */
 } BUTTONDATA;
 typedef BUTTONDATA* PBUTTONDATA;
 
