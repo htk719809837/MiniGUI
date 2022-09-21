@@ -418,7 +418,7 @@ int DefaultItemViewProc (HWND hWnd, int message, WPARAM wParam, LPARAM lParam,
         RECT rcVis;
         MgItem *hitem;
 
-        if ( !mglst->iop.isInItem )
+        if (-1 == mglst->iop.isInItem )
             break;
         scrolled_get_visible_rect (pscrdata, &rcVis);
         /* not in the visible area */
